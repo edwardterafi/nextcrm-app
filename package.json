@@ -167,4 +167,20 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
+,
+"pnpm": {
+  "onlyBuiltDependencies": [
+    "@parcel/watcher",
+    "@prisma/engines",
+    "@swc/core",
+    "aws-crt",
+    "bcrypt",
+    "canvas",
+    "esbuild",
+    "msw",
+    "prisma",
+    "protobufjs",
+    "sharp",
+    "unrs-resolver"
+  ]  
 }
