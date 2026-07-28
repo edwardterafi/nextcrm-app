@@ -18,7 +18,8 @@ export async function generateMetadata(props: Props) {
 
   const t = await getTranslations({ locale, namespace: "RootLayout" });
 
-  return {
+ return {
+    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL!),
     title: t("title"),
     description: t("description"),
   };
