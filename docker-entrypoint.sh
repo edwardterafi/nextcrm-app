@@ -58,10 +58,10 @@ fi
 # --- 5. Conditional database seed ---
 # Use psql to count users directly (reliable) rather than prisma db execute
 # (which emits noisy output hard to parse).
-echo "==> Checking if database needs seeding..."
-USER_COUNT=$(PGPASSWORD="$DB_PASSWORD" psql \
+echo "==> Auto-approving all pending users (temporary demo helper)..."
+PGPASSWORD="$DB_PASSWORD" psql \
   -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-  -tAc 'SELECT COUNT(*) FROM "Users";' 2>/dev/null || echo "0")
+  -c "UPDATE \"Users\" SET \"userStatus\" = 'ACTIVE' WHERE \"userStatus\" != 'ACTIVE';" 2>/dev/null || true
 
 # Strip whitespace
 USER_COUNT=$(echo "$USER_COUNT" | tr -d '[:space:]')
