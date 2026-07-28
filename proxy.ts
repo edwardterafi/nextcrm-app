@@ -58,7 +58,8 @@ export async function proxy(req: NextRequest) {
   // of using the public host/protocol.
   const location = response.headers.get("location");
   if (location) {
-    const forwardedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const rawHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const forwardedHost = rawHost?.replace(/:\d+$/, "");
     const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
     if (forwardedHost) {
       const fixedUrl = new URL(location, `${forwardedProto}://${forwardedHost}`);
