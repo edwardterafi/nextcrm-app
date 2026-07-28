@@ -51,7 +51,24 @@ export async function proxy(req: NextRequest) {
   }
 
   // Non-API routes — delegate to next-intl
-  return intlMiddleware(req);
+  const response = intlMiddleware(req);
+
+  // Work around a known Next.js middleware bug where redirects behind a
+  // reverse proxy (Render, etc.) leak the internal container port instead
+  // of using the public host/protocol.
+  const location = response.headers.get("location");
+  if (location) {
+    const forwardedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
+    if (forwardedHost) {
+      const fixedUrl = new URL(location, `${forwardedProto}://${forwardedHost}`);
+      fixedUrl.protocol = forwardedProto;
+      fixedUrl.host = forwardedHost;
+      response.headers.set("location", fixedUrl.toString());
+    }
+  }
+
+  return response;
 }
 
 export const config = {
