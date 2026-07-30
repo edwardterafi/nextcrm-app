@@ -11,7 +11,14 @@ function normalizePhone(raw: string | null | undefined): string {
   const digitsOnly = raw.replace(/\D/g, "");
   return digitsOnly.slice(-9);
 }
-
+function parseCdrTimestamp(raw: string): Date {
+  // cdr.time_start has no timezone info; it's in the PBX's local time.
+  // Set YEASTAR_PBX_UTC_OFFSET_HOURS to your PBX's offset from UTC
+  // (e.g. 10 for AEST, 11 for AEDT) so timestamps display correctly.
+  const offsetHours = Number(process.env.YEASTAR_PBX_UTC_OFFSET_HOURS ?? 0);
+  const naiveUtc = new Date(raw.replace(" ", "T") + "Z");
+  return new Date(naiveUtc.getTime() - offsetHours * 60 * 60 * 1000);
+}
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const signature = req.headers.get("x-signature");
@@ -84,8 +91,9 @@ export async function POST(req: NextRequest) {
       type: "call",
       title: `${cdr.type} call ${matchedContact ? `with ${matchedContact.first_name ?? ""} ${matchedContact.last_name}` : `from ${externalNumber}`}`,
       description: `${cdr.type} call, status: ${cdr.status}`,
-      date: new Date(cdr.time_start),
+      date: parseCdrTimestamp(cdr.time_start),
       duration: cdr.talk_duration,
+      status: "completed",
       outcome: cdr.status,
       metadata: cdr,
     },
