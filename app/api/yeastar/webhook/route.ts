@@ -44,6 +44,12 @@ type CallMember = {
   extension?: { number: string; member_status: string };
   internal?: { from: string; to: string; member_status: string };
   trunk?: { from: string; to: string; member_status: string };
+  inbound?: {
+    from: string;
+    to: string;
+    trunk_name: string;
+    member_status: string;
+  };
 };
 
 export async function POST(req: NextRequest) {
@@ -78,41 +84,38 @@ export async function POST(req: NextRequest) {
     try {
       const statusMsg: { call_id: string; members: CallMember[] } = JSON.parse(envelope.msg);
 
-      const ringingMember = statusMsg.members?.find(
+      const hasRingingExtension = statusMsg.members?.some(
         (m) =>
           m.extension?.member_status === "RING" ||
-          m.internal?.member_status === "RING" ||
           m.trunk?.member_status === "RING"
       );
 
-      if (ringingMember) {
-        // Internal calls always have an "internal" key on the member — skip
-        // those, we only want to pop external inbound calls.
-        const isInternalCall = statusMsg.members?.some((m) => m.internal);
+      // Internal calls always carry an "internal" key on one of the
+      // members — skip those, we only want to pop external inbound calls.
+      const isInternalCall = statusMsg.members?.some((m) => m.internal);
 
-        if (!isInternalCall) {
-          // Best-guess extraction — not yet confirmed against a real
-          // external inbound (30011) payload. If the pop-up doesn't fire
-          // correctly on the first live test, check this log line for the
-          // actual field the caller number sits under.
-          const callerNumber =
-            ringingMember.trunk?.from ?? ringingMember.extension?.number ?? "";
+      if (hasRingingExtension && !isInternalCall) {
+        // The RING status lands on the "extension" member, but the actual
+        // caller number lives on a *sibling* member tagged "inbound"
+        // (member_status will read "ALERT" there, not "RING"). Pull the
+        // number from that member, not from whichever one says RING.
+        const inboundMember = statusMsg.members?.find((m) => m.inbound);
+        const callerNumber = inboundMember?.inbound?.from ?? "";
 
-          console.log(
-            "[Yeastar Webhook] RING detected, extracted callerNumber:",
+        console.log(
+          "[Yeastar Webhook] RING detected, extracted callerNumber:",
+          callerNumber,
+          "raw members:",
+          JSON.stringify(statusMsg.members)
+        );
+
+        if (callerNumber) {
+          const contact = await findContactByPhone(callerNumber);
+          callEventEmitter.emit("incoming-call", {
+            callId: statusMsg.call_id,
             callerNumber,
-            "raw member:",
-            JSON.stringify(ringingMember)
-          );
-
-          if (callerNumber) {
-            const contact = await findContactByPhone(callerNumber);
-            callEventEmitter.emit("incoming-call", {
-              callId: statusMsg.call_id,
-              callerNumber,
-              contactId: contact?.id ?? null,
-            });
-          }
+            contactId: contact?.id ?? null,
+          });
         }
       }
     } catch (err) {
