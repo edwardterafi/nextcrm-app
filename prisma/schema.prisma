@@ -528,6 +528,7 @@ model crm_Contacts {
   opportunities     ContactsToOpportunities[]
   documents         DocumentsToContacts[]
   embedding         crm_Embeddings_Contacts?
+  yeastar_sync      crm_YeastarContactSync?
   emails            EmailsToContacts[]
   enrichments           crm_Contact_Enrichment[]
   converted_targets     crm_Targets[]            @relation("target_converted_contact")
@@ -545,7 +546,16 @@ model crm_Contacts {
   @@index([last_activity])
   @@index([deletedAt])
 }
+model crm_YeastarContactSync {
+  crmContactId     String   @id @db.Uuid
+  yeastarContactId Int      @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
+  contact crm_Contacts @relation(fields: [crmContactId], references: [id], onDelete: Cascade)
+
+  @@index([yeastarContactId])
+}
 model crm_Contracts {
   id                  String               @id @default(uuid()) @db.Uuid
   v                   Int                  @map("__v")
