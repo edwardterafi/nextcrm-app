@@ -12,7 +12,7 @@ import { getTranslations } from "next-intl/server";
 import { AvatarProvider } from "@/context/avatar-context";
 import { CurrencyProvider } from "@/context/currency-context";
 import { getEnabledCurrencies, getDefaultCurrency } from "@/lib/currency";
-
+import { CallPopupListener } from "@/components/CallPopupListener";
 export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL! || "http://localhost:3000"
@@ -106,6 +106,7 @@ export default async function AppLayout({
     <AvatarProvider initialAvatar={user?.image}>
     <CurrencyProvider initialCurrency={displayCurrency} currencies={currencyList}>
     <SidebarProvider defaultOpen={sidebarOpen}>
+      <CallPopupListener />
       <AppSidebar
         dict={translations}
         session={session}
