@@ -7,37 +7,57 @@ type IncomingCallEvent = {
   contactId: string | null;
 };
 
+const HANDLED_CALL_TTL_MS = 60_000; // stale claim cleanup window
+
+function tryClaimCall(callId: string): boolean {
+  const key = `call-popup-handled:${callId}`;
+  if (localStorage.getItem(key)) return false; // another tab already claimed it
+  localStorage.setItem(key, String(Date.now()));
+  return true;
+}
+
+function cleanupStaleClaims() {
+  const now = Date.now();
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith("call-popup-handled:")) continue;
+    const ts = Number(localStorage.getItem(key));
+    if (!ts || now - ts > HANDLED_CALL_TTL_MS) {
+      localStorage.removeItem(key);
+    }
+  }
+}
+
 export function CallPopupListener() {
   useEffect(() => {
     let isLeader = false;
-    let released = false;
 
-    // Only one tab across the whole browser should act on incoming-call
-    // events. Every open tab runs this listener and gets the same SSE
-    // broadcast, so without this lock each tab opens its own popup for
-    // the same call. Whichever tab acquires the lock becomes the sole
-    // handler until it closes; the lock then passes to another open tab.
+    // Primary defense: only the elected leader tab acts on events at all.
     navigator.locks.request("call-popup-leader", { mode: "exclusive" }, () => {
-      if (released) return;
       isLeader = true;
-      return new Promise<void>(() => {}); // hold the lock for the tab's lifetime
+      return new Promise<void>(() => {});
     });
 
     const source = new EventSource("/api/yeastar/events");
     source.onmessage = (e) => {
-      if (!isLeader) return; // non-leader tabs receive the event but ignore it
+      if (!isLeader) return;
       try {
         const data: IncomingCallEvent = JSON.parse(e.data);
-        if (data.contactId) {
-          window.open(`/crm/contacts/${data.contactId}`, "_blank");
-        }
+        if (!data.contactId) return;
+
+        cleanupStaleClaims();
+
+        // Secondary defense: even if two tabs briefly both believe
+        // they're leader during a handoff (e.g. right after the old
+        // leader tab closes), only the first one to claim this exact
+        // callId is allowed to actually open the popup.
+        if (!tryClaimCall(data.callId)) return;
+
+        window.open(`/crm/contacts/${data.contactId}`, "_blank");
       } catch {}
     };
 
-    return () => {
-      released = true;
-      source.close();
-    };
+    return () => source.close();
   }, []);
 
   return null;
