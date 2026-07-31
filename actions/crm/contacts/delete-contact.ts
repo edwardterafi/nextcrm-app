@@ -8,7 +8,7 @@ import {
   AuthenticationError,
   AuthorizationError,
 } from "@/lib/authz";
-
+import { syncContactToYeastar } from "@/lib/yeastar-contact-sync";
 export const deleteContact = async (contactId: string) => {
   if (!contactId) return { error: "contactId is required" };
 
@@ -38,6 +38,13 @@ export const deleteContact = async (contactId: string) => {
       changes: null,
       userId: user.id,
     });
+
+    try {
+      await syncContactToYeastar(contactId, "delete");
+    } catch (syncError) {
+      console.log("[DELETE_CONTACT] Yeastar sync failed:", syncError);
+    }
+
     revalidatePath("/[locale]/(routes)/crm/contacts", "page");
     return { success: true };
   } catch (error) {
