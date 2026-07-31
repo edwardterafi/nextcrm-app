@@ -11,6 +11,7 @@ import {
   AuthorizationError,
 } from "@/lib/authz";
 
+import { syncContactToYeastar } from "@/lib/yeastar-contact-sync";
 export const updateContact = async (data: {
   id: string;
   assigned_to?: string;
@@ -92,6 +93,13 @@ export const updateContact = async (data: {
       userId: user.id,
     });
     void inngest.send({ name: "crm/contact.saved", data: { record_id: contact.id } });
+
+    try {
+      await syncContactToYeastar(contact.id, "upsert");
+    } catch (syncError) {
+      console.log("[UPDATE_CONTACT] Yeastar sync failed:", syncError);
+    }
+
     revalidatePath("/[locale]/(routes)/crm/contacts", "page");
     return { data: contact };
   } catch (error) {
