@@ -130,7 +130,7 @@ export async function updateYeastarContact(
     numbers?: YeastarNumberEntry[];
   }
 ): Promise<void> {
-  await yeastarRequest("POST", "company_contact/edit", {
+  await yeastarRequest("POST", "company_contact/update", {
     id: yeastarContactId,
     first_name: params.firstName,
     last_name: params.lastName,
